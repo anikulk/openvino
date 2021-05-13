@@ -33,14 +33,18 @@ foreach(idx RANGE 0 ${num_firmwares})
     endif ()
 
     reset_deps_cache(VPU_FIRMWARE_${firmware_name_upper}_FILE)
-
-    RESOLVE_DEPENDENCY(VPU_FIRMWARE_${firmware_name_upper}
-        ARCHIVE_UNIFIED VPU/${firmware_name}/firmware_${firmware_name}_${FIRMWARE_PACKAGE_VERSION}.zip
-        TARGET_PATH "${TEMP}/vpu/firmware/${firmware_name}"
-        ENVIRONMENT "VPU_FIRMWARE_${firmware_name_upper}_FILE"
-        FOLDER
-        SHA256 ${hash})
-    debug_message(STATUS "${firmware_name}=" ${VPU_FIRMWARE_${firmware_name_upper}})
+    
+    if (NOT DEFINED TARGET_OS)
+        RESOLVE_DEPENDENCY(VPU_FIRMWARE_${firmware_name_upper}
+            ARCHIVE_UNIFIED VPU/${firmware_name}/firmware_${firmware_name}_${FIRMWARE_PACKAGE_VERSION}.zip
+            TARGET_PATH "${TEMP}/vpu/firmware/${firmware_name}"
+            ENVIRONMENT "VPU_FIRMWARE_${firmware_name_upper}_FILE"
+            FOLDER
+            SHA256 ${hash})
+        debug_message(STATUS "${firmware_name}=" ${VPU_FIRMWARE_${firmware_name_upper}})
+    else()
+        set(VPU_FIRMWARE_${firmware_name_upper} ${TEMP}/vpu/firmware/${firmware_name})
+    endif()
 
     update_deps_cache(
         VPU_FIRMWARE_${firmware_name_upper}_FILE
@@ -109,7 +113,6 @@ endif()
 #
 # OpenCL compiler
 #
-
 if(LINUX AND LINUX_OS_NAME MATCHES "Ubuntu")
     if(DEFINED ENV{THIRDPARTY_SERVER_PATH})
         set(IE_PATH_TO_DEPS "$ENV{THIRDPARTY_SERVER_PATH}")

@@ -38,7 +38,7 @@
 
 static char* m_exename = nullptr;
 
-#if defined(_WIN32) || defined(__APPLE__) || defined(ANDROID)
+#if defined(_WIN32) || defined(__APPLE__) || defined(ANDROID) || defined(CHROMEOS)
 typedef std::chrono::time_point<std::chrono::steady_clock> time_point;
 #else
 typedef std::chrono::time_point<std::chrono::system_clock> time_point;
@@ -51,14 +51,14 @@ typedef std::chrono::duration<float> fsec;
 
 class BitMap {
 private:
-    typedef struct {
+    typedef struct _BmpHeader {
         unsigned short type   = 0u;               /* Magic identifier            */
         unsigned int size     = 0u;               /* File size in bytes          */
         unsigned int reserved = 0u;
         unsigned int offset   = 0u;               /* Offset to image data, bytes */
     } BmpHeader;
 
-    typedef struct {
+    typedef struct _BmpInfoHeader {
         unsigned int size = 0u;                   /* Header size in bytes      */
         int width = 0, height = 0;                /* Width and height of image */
         unsigned short planes = 0u;               /* Number of colour planes   */

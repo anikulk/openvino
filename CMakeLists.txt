@@ -36,6 +36,10 @@ foreach(component IN LISTS openvino_export_components)
     unset(${component} CACHE)
 endforeach()
 
+if (${TARGET_OS} STREQUAL "CHROMEOS")
+    add_definitions(-DCHROMEOS)
+endif()
+
 #
 # Build
 #
