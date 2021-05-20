@@ -122,9 +122,15 @@ function(ie_add_plugin)
         string(TOLOWER "${IE_PLUGIN_DEVICE_NAME}" install_component)
         ie_cpack_add_component(${install_component} REQUIRED DEPENDS core)
 
-        install(TARGETS ${IE_PLUGIN_NAME}
-            RUNTIME DESTINATION ${IE_CPACK_RUNTIME_PATH} COMPONENT ${install_component}
-            LIBRARY DESTINATION ${IE_CPACK_RUNTIME_PATH} COMPONENT ${install_component})
+        if (${TARGET_OS} STREQUAL "CHROMEOS")
+            install(TARGETS ${IE_PLUGIN_NAME}
+                RUNTIME DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT ${install_component}
+                LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT ${install_component})
+        else()
+            install(TARGETS ${IE_PLUGIN_NAME}
+                RUNTIME DESTINATION ${IE_CPACK_RUNTIME_PATH} COMPONENT ${install_component}
+                LIBRARY DESTINATION ${IE_CPACK_RUNTIME_PATH} COMPONENT ${install_component})
+        endif()
     endif()
 endfunction()
 
