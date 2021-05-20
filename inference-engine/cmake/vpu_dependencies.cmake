@@ -34,7 +34,7 @@ foreach(idx RANGE 0 ${num_firmwares})
 
     reset_deps_cache(VPU_FIRMWARE_${firmware_name_upper}_FILE)
     
-    if (NOT DEFINED TARGET_OS)
+    if (NOT CHROMEOS)
         RESOLVE_DEPENDENCY(VPU_FIRMWARE_${firmware_name_upper}
             ARCHIVE_UNIFIED VPU/${firmware_name}/firmware_${firmware_name}_${FIRMWARE_PACKAGE_VERSION}.zip
             TARGET_PATH "${TEMP}/vpu/firmware/${firmware_name}"
