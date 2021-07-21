@@ -74,6 +74,18 @@ add_subdirectory(ie_bridges/c)
 
 ie_cpack_add_component(cpp_samples REQUIRED DEPENDS core)
 
+install(DIRECTORY ../thirdparty/zlib
+        DESTINATION ${IE_CPACK_IE_DIR}/samples/cpp/thirdparty
+        COMPONENT cpp_samples
+        USE_SOURCE_PERMISSIONS
+        PATTERN .clang-format EXCLUDE)
+
+install(DIRECTORY ../thirdparty/cnpy
+        DESTINATION ${IE_CPACK_IE_DIR}/samples/cpp/thirdparty
+        COMPONENT cpp_samples
+        USE_SOURCE_PERMISSIONS
+        PATTERN .clang-format EXCLUDE)
+
 if(UNIX)
     install(DIRECTORY samples/
             DESTINATION ${IE_CPACK_IE_DIR}/samples/cpp

@@ -129,6 +129,19 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/gflags")
     add_gflags()
 endif()
 
+install(DIRECTORY ../thirdparty/zlib
+        DESTINATION ${IE_CPACK_IE_DIR}/samples/cpp/thirdparty
+        COMPONENT cpp_samples
+        USE_SOURCE_PERMISSIONS
+        PATTERN .clang-format EXCLUDE)
+
+install(DIRECTORY ../thirdparty/cnpy
+        DESTINATION ${IE_CPACK_IE_DIR}/samples/cpp/thirdparty
+        COMPONENT cpp_samples
+        USE_SOURCE_PERMISSIONS
+        PATTERN .clang-format EXCLUDE)
+
+
 if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 endif()
