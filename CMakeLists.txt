@@ -92,10 +92,13 @@ add_subdirectory(inference-engine)
 openvino_developer_export_targets(COMPONENT ngraph TARGETS ngraph_backend interpreter_backend)
 include(cmake/extra_modules.cmake)
 
-add_subdirectory(model-optimizer)
+if(NOT LINUX_OS_NAME STREQUAL "CHROMEOS")
+	add_subdirectory(model-optimizer)
+	add_subdirectory(scripts)
+endif()
+
 add_subdirectory(docs)
 add_subdirectory(tools)
-add_subdirectory(scripts)
 
 #
 # CPack

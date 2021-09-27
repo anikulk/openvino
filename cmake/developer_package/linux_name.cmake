@@ -6,6 +6,17 @@ include(target_flags)
 
 if (LINUX)
     function(get_linux_name res_var)
+        if (EXISTS "/usr/bin/x86_64-cros-linux-gnu-clang")
+            execute_process(COMMAND /usr/bin/x86_64-cros-linux-gnu-clang --version
+                    OUTPUT_VARIABLE clang_version RESULT_VARIABLE result)
+            string(FIND "${clang_version}" "Chromium OS" success)
+
+            if (NOT "${success}" EQUAL "-1")
+               set(${res_var} "CHROMEOS" PARENT_SCOPE)
+               return()
+            endif()
+        endif()
+
         if (NOT EXISTS "/etc/lsb-release")
             execute_process(COMMAND find -L /etc/ -maxdepth 1 -type f -name *-release -exec cat {} \;
                     OUTPUT_VARIABLE release_data RESULT_VARIABLE result)

@@ -280,17 +280,31 @@ install(DIRECTORY "${PUBLIC_HEADERS_DIR}/" DESTINATION runtime/include
         COMPONENT core_dev)
 
 set_target_properties(${TARGET_NAME} PROPERTIES EXPORT_NAME runtime)
-install(TARGETS ${TARGET_NAME} EXPORT OpenVINOTargets
-        RUNTIME DESTINATION ${IE_CPACK_RUNTIME_PATH} COMPONENT core
-        ARCHIVE DESTINATION ${IE_CPACK_ARCHIVE_PATH} COMPONENT core
-        LIBRARY DESTINATION ${IE_CPACK_LIBRARY_PATH} COMPONENT core
-        INCLUDES DESTINATION runtime/include
-                             # TODO: remove later once samples are updated
-                             runtime/include/ie)
+if (NOT LINUX_OS_NAME STREQUAL "CHROMEOS")
+    install(TARGETS ${TARGET_NAME} EXPORT OpenVINOTargets
+            RUNTIME DESTINATION ${IE_CPACK_RUNTIME_PATH} COMPONENT core
+            ARCHIVE DESTINATION ${IE_CPACK_ARCHIVE_PATH} COMPONENT core
+            LIBRARY DESTINATION ${IE_CPACK_LIBRARY_PATH} COMPONENT core
+            INCLUDES DESTINATION runtime/include
+							 # TODO: remove later once samples are updated
+							 runtime/include/ie)
 
-install(FILES $<TARGET_FILE_DIR:${TARGET_NAME}>/plugins.xml
-        DESTINATION ${IE_CPACK_RUNTIME_PATH}
-        COMPONENT core)
+	install(FILES $<TARGET_FILE_DIR:${TARGET_NAME}>/plugins.xml
+			DESTINATION ${IE_CPACK_RUNTIME_PATH}
+			COMPONENT core)
+else()
+    install(TARGETS ${TARGET_NAME} EXPORT OpenVINOTargets
+            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT core
+            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT core
+            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT core
+            INCLUDES DESTINATION runtime/include
+                            # TODO: remove later once samples are updated
+                            runtime/include/ie)
+
+	install(FILES $<TARGET_FILE_DIR:${TARGET_NAME}>/plugins.xml
+			DESTINATION ${CMAKE_INSTALL_LIBDIR}
+			COMPONENT core)
+endif()
 
 # for InferenceEngineUnitTest
 if(WIN32)

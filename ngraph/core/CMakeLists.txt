@@ -118,12 +118,19 @@ export(TARGETS ngraph NAMESPACE openvino::
 #-----------------------------------------------------------------------------------------------
 # Installation logic...
 #-----------------------------------------------------------------------------------------------
-
-install(TARGETS ngraph EXPORT OpenVINOTargets
-        RUNTIME DESTINATION ${IE_CPACK_RUNTIME_PATH} COMPONENT ngraph
-        ARCHIVE DESTINATION ${IE_CPACK_ARCHIVE_PATH} COMPONENT ngraph
-        LIBRARY DESTINATION ${IE_CPACK_LIBRARY_PATH} COMPONENT ngraph
-        INCLUDES DESTINATION runtime/include)
+if(NOT LINUX_OS_NAME STREQUAL "CHROMEOS")
+	install(TARGETS ngraph EXPORT OpenVINOTargets
+			RUNTIME DESTINATION ${IE_CPACK_RUNTIME_PATH} COMPONENT ngraph
+			ARCHIVE DESTINATION ${IE_CPACK_ARCHIVE_PATH} COMPONENT ngraph
+			LIBRARY DESTINATION ${IE_CPACK_LIBRARY_PATH} COMPONENT ngraph
+			INCLUDES DESTINATION runtime/include)
+else()
+	install(TARGETS ngraph EXPORT OpenVINOTargets
+			RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT ngraph
+			ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT ngraph
+			LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} COMPONENT ngraph
+			INCLUDES DESTINATION runtime/include)
+endif()
 
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/
         DESTINATION "runtime/include"
