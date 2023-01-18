@@ -9,6 +9,11 @@ include(target_flags)
 # cmake needs to look at /etc files only when we build for Linux on Linux
 if(CMAKE_HOST_LINUX AND LINUX)
     function(get_linux_name res_var)
+        if (TARGET_OS_NAME STREQUAL "CHROMIUMOS")
+            set(${res_var} "CHROMIUMOS" PARENT_SCOPE)
+            return()
+        endif()
+
         if(EXISTS "/etc/lsb-release")
             # linux version detection using cat /etc/lsb-release
             file(READ "/etc/lsb-release" release_data)
