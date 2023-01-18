@@ -242,14 +242,14 @@ endif()
 # General flags
 
 macro(ov_install_static_lib target comp)
-    if(NOT BUILD_SHARED_LIBS)
+	if(NOT BUILD_SHARED_LIBS)
         get_target_property(target_type ${target} TYPE)
         if(${target_type} STREQUAL "STATIC_LIBRARY")
             set_target_properties(${target} PROPERTIES EXCLUDE_FROM_ALL FALSE)
         endif()
         install(TARGETS ${target} EXPORT OpenVINOTargets
                 ARCHIVE DESTINATION ${OV_CPACK_ARCHIVEDIR} COMPONENT ${comp} ${ARGN})
-    endif()
+	endif()
 endmacro()
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
