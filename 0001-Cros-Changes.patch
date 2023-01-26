@@ -1,0 +1,801 @@
+From 08cca5cbea3ec5f98cfb92bf47b678c88a079d50 Mon Sep 17 00:00:00 2001
+From: Anisha Kulkarni <anisha.dattatraya.kulkarni@intel.com>
+Date: Wed, 11 Jan 2023 14:43:53 -0800
+Subject: [PATCH] Cros Changes
+
+---
+ src/vpux_al/include/vpux_variable_state.hpp   |  1 +
+ .../compiler/act_kernels/invocation_builder.h |  2 +-
+ .../include/vpux/compiler/core/profiling.hpp  |  6 +-
+ src/vpux_compiler/src/compiler.cpp            |  2 +
+ src/vpux_compiler/src/compiler_version.cpp    |  2 +-
+ .../passes/IE2VPU/convert_IE_to_VPU_NCE.cpp   |  3 +-
+ .../passes/VPU2EMU/convert_nce_ops_to_emu.cpp |  2 +-
+ .../convert_VPUIP_to_VPUIPRegMapped.cpp       | 10 +-
+ .../src/dialect/VPU/ops/m2i_task.cpp          |  6 +-
+ .../src/dialect/VPU/ops_interfaces.cpp        |  2 +
+ .../src/dialect/VPU/passes/manual_tiling.cpp  |  2 +-
+ .../multi_cluster_strategy_utils.cpp          |  9 +-
+ .../wrap_vpu_ops_in_ncecluster_tiling.cpp     | 20 +++-
+ .../src/dialect/VPU/utils/ppe_utils.cpp       | 10 +-
+ .../src/dialect/VPUIP/ops/m2i_task.cpp        |  2 +-
+ .../VPUIP/passes/convert_copy_to_DMA.cpp      |  1 +
+ .../dialect/VPUIP/passes/fuse_constants.cpp   |  2 +
+ .../src/dialect/VPUIP/passes/profiling.cpp    |  2 +
+ .../VPUIP/passes/unroll_permute_to_nndma.cpp  |  2 +-
+ src/vpux_compiler/src/frontend/IE.cpp         | 99 +++++++++----------
+ .../src/utils/dot_graph_writer.cpp            |  2 +-
+ src/vpux_compiler/src/utils/partitioner.cpp   |  2 +-
+ .../src/passes/fuse_mvn.cpp                   |  2 +-
+ .../vpux/hwtest/test_case_json_parser.hpp     |  2 +-
+ .../hwtest/buildHaloMultiClusteringTest.cpp   |  2 +
+ src/zero_backend/include/zero_executor.h      |  6 +-
+ tools/legacy/single-image-test/main.cpp       |  2 +
+ tools/single-image-test/main.cpp              |  4 +
+ tools/vpux-binutils/vpux-loader/main.cpp      |  4 +-
+ 29 files changed, 121 insertions(+), 90 deletions(-)
+
+diff --git a/src/vpux_al/include/vpux_variable_state.hpp b/src/vpux_al/include/vpux_variable_state.hpp
+index a533d8ac63..2fc4a68c04 100644
+--- a/src/vpux_al/include/vpux_variable_state.hpp
++++ b/src/vpux_al/include/vpux_variable_state.hpp
+@@ -18,5 +18,6 @@ public:
+     virtual void Reset();
+     virtual void SetState(const InferenceEngine::Blob::Ptr& new_state);
+     virtual InferenceEngine::Blob::CPtr GetState() const;
++    virtual ~VariableState() = default;
+ };
+ }  // namespace vpux
+diff --git a/src/vpux_compiler/include/vpux/compiler/act_kernels/invocation_builder.h b/src/vpux_compiler/include/vpux/compiler/act_kernels/invocation_builder.h
+index 1d01551b7d..d436e5c150 100644
+--- a/src/vpux_compiler/include/vpux/compiler/act_kernels/invocation_builder.h
++++ b/src/vpux_compiler/include/vpux/compiler/act_kernels/invocation_builder.h
+@@ -63,7 +63,7 @@ private:
+      */
+     template <class U, class T>
+     PatchCallbackType createPatchPoint(const T& patcher) {
+-        return [offset = _scalarStorage.size(), arrayOffset = _arrayStorage.size(), this, patcher](
++        return [offset = _scalarStorage.size(), arrayOffset = _arrayStorage.size(), patcher](
+                        MutableArrayRef<uint8_t> serialStorage, size_t updateTo) {
+             auto& origObject = reinterpret_cast<U&>(*(serialStorage.begin() + offset));
+             patcher(origObject, checked_cast<uint32_t>(updateTo + arrayOffset));
+diff --git a/src/vpux_compiler/include/vpux/compiler/core/profiling.hpp b/src/vpux_compiler/include/vpux/compiler/core/profiling.hpp
+index 888d6d561f..00f0420c7b 100644
+--- a/src/vpux_compiler/include/vpux/compiler/core/profiling.hpp
++++ b/src/vpux_compiler/include/vpux/compiler/core/profiling.hpp
+@@ -56,15 +56,15 @@ public:
+         chunkItemId++;
+     }
+ 
+-    const auto getChunks() {
++    auto getChunks() const {
+         return chunks;
+     }
+ 
+-    const auto getOpsInChunk() {
++    auto getOpsInChunk() const {
+         return opsInChunk;
+     }
+ 
+-    const auto getOpsInLastChunk() {
++    auto getOpsInLastChunk() const {
+         return (lastChunk) ? lastChunk : opsInChunk;
+     }
+ };
+diff --git a/src/vpux_compiler/src/compiler.cpp b/src/vpux_compiler/src/compiler.cpp
+index a8e8caf5af..630ba9133c 100644
+--- a/src/vpux_compiler/src/compiler.cpp
++++ b/src/vpux_compiler/src/compiler.cpp
+@@ -48,6 +48,7 @@
+ #include <transformations/utils/utils.hpp>
+ 
+ #include <algorithm>
++#include <iostream>
+ 
+ #if defined(VPUX_DEVELOPER_BUILD) || !defined(NDEBUG)
+ 
+@@ -568,6 +569,7 @@ std::shared_ptr<INetworkDescription> vpux::CompilerImpl::compile(const std::shar
+         VPUX_THROW_UNLESS(options != nullptr, "failed to parse COMPILATION_MODE_PARAMS");
+         enableDummyOpReplacement = options->enableDummyOpReplacement;
+     } else if (compilationMode == VPU::CompilationMode::ReferenceHW) {
++	std::cout << "Ref hardware\n";
+         const auto options = ReferenceHWOptions::createFromString(config.get<COMPILATION_MODE_PARAMS>());
+         VPUX_THROW_UNLESS(options != nullptr, "failed to parse COMPILATION_MODE_PARAMS");
+         enableDummyOpReplacement = options->enableDummyOpReplacement;
+diff --git a/src/vpux_compiler/src/compiler_version.cpp b/src/vpux_compiler/src/compiler_version.cpp
+index ed81f6b896..2864aaab93 100644
+--- a/src/vpux_compiler/src/compiler_version.cpp
++++ b/src/vpux_compiler/src/compiler_version.cpp
+@@ -5,6 +5,6 @@
+ 
+ namespace vpux {
+ 
+-const char VPUX_COMPILER_VERSION[] = "";
++//const char VPUX_COMPILER_VERSION[] = "";
+ 
+ }  // namespace vpux
+diff --git a/src/vpux_compiler/src/conversion/passes/IE2VPU/convert_IE_to_VPU_NCE.cpp b/src/vpux_compiler/src/conversion/passes/IE2VPU/convert_IE_to_VPU_NCE.cpp
+index 4ffe504af5..9f9c5bd0ca 100644
+--- a/src/vpux_compiler/src/conversion/passes/IE2VPU/convert_IE_to_VPU_NCE.cpp
++++ b/src/vpux_compiler/src/conversion/passes/IE2VPU/convert_IE_to_VPU_NCE.cpp
+@@ -389,8 +389,9 @@ public:
+ public:
+     mlir::LogicalResult matchAndRewrite(IE::PermuteQuantizeOp origOp, mlir::PatternRewriter& rewriter) const final;
+ 
+-private:
++protected:
+     VPU::ArchKind _arch;
++private:
+     Logger _log;
+ };
+ 
+diff --git a/src/vpux_compiler/src/conversion/passes/VPU2EMU/convert_nce_ops_to_emu.cpp b/src/vpux_compiler/src/conversion/passes/VPU2EMU/convert_nce_ops_to_emu.cpp
+index 4c931cfe54..31de9f0451 100644
+--- a/src/vpux_compiler/src/conversion/passes/VPU2EMU/convert_nce_ops_to_emu.cpp
++++ b/src/vpux_compiler/src/conversion/passes/VPU2EMU/convert_nce_ops_to_emu.cpp
+@@ -189,7 +189,7 @@ public:
+     mlir::LogicalResult matchAndRewrite(VPU::NCEEltwiseOp origOp, mlir::PatternRewriter& rewriter) const final;
+ 
+ private:
+-    VPU::EltwiseType _opType;
++    //VPU::EltwiseType _opType;
+     Logger _log;
+ };
+ 
+diff --git a/src/vpux_compiler/src/conversion/passes/VPUIP2VPUIPRegMapped/convert_VPUIP_to_VPUIPRegMapped.cpp b/src/vpux_compiler/src/conversion/passes/VPUIP2VPUIPRegMapped/convert_VPUIP_to_VPUIPRegMapped.cpp
+index e4801b317a..236242927c 100644
+--- a/src/vpux_compiler/src/conversion/passes/VPUIP2VPUIPRegMapped/convert_VPUIP_to_VPUIPRegMapped.cpp
++++ b/src/vpux_compiler/src/conversion/passes/VPUIP2VPUIPRegMapped/convert_VPUIP_to_VPUIPRegMapped.cpp
+@@ -152,7 +152,7 @@ private:
+             }
+ 
+             lowerDMA<VPUIP::PermuteDMAOp>(
+-                    [&builderBlk, this](VPUIP::PermuteDMAOp permuteDMAOp, mlir::Value previousDMA,
++                    [&builderBlk](VPUIP::PermuteDMAOp permuteDMAOp, mlir::Value previousDMA,
+                                         VPUIPRegMapped::IndexType indexType, mlir::ValueRange waitBarriers,
+                                         mlir::ValueRange updateBarriers) {
+                         const auto dataShape = getShape(permuteDMAOp.input());
+@@ -183,7 +183,7 @@ private:
+             }
+ 
+             lowerDMA<VPUIP::CompressedDMAOp>(
+-                    [&builderBlk, this](VPUIP::CompressedDMAOp compressedDMAOp, mlir::Value previousDMA,
++                    [&builderBlk](VPUIP::CompressedDMAOp compressedDMAOp, mlir::Value previousDMA,
+                                         VPUIPRegMapped::IndexType indexType, mlir::ValueRange waitBarriers,
+                                         mlir::ValueRange updateBarriers) {
+                         return builderBlk.create<VPUIPRegMapped::NNDMAOp>(
+@@ -200,7 +200,7 @@ private:
+             }
+ 
+             lowerDMA<VPUIP::ExpandDMAOp>(
+-                    [&builderBlk, this](VPUIP::ExpandDMAOp expandDMAOp, mlir::Value previousDMA,
++                    [&builderBlk](VPUIP::ExpandDMAOp expandDMAOp, mlir::Value previousDMA,
+                                         VPUIPRegMapped::IndexType indexType, mlir::ValueRange waitBarriers,
+                                         mlir::ValueRange updateBarriers) {
+                         const auto dmaDescriptorReference = VPUIP::getExpandNNDMADescriptorReference(expandDMAOp);
+@@ -228,7 +228,7 @@ private:
+             }
+ 
+             lowerDMA<VPUIP::SpaceToDepthDMAOp>(
+-                    [&builderBlk, this](VPUIP::SpaceToDepthDMAOp spaceToDepthDMAOp, mlir::Value previousDMA,
++                    [&builderBlk](VPUIP::SpaceToDepthDMAOp spaceToDepthDMAOp, mlir::Value previousDMA,
+                                         VPUIPRegMapped::IndexType indexType, mlir::ValueRange waitBarriers,
+                                         mlir::ValueRange updateBarriers) {
+                         return builderBlk.create<VPUIPRegMapped::NNDMAOp>(
+@@ -245,7 +245,7 @@ private:
+             }
+ 
+             lowerDMA<VPUIP::DepthToSpaceDMAOp>(
+-                    [&builderBlk, this](VPUIP::DepthToSpaceDMAOp depthToSpaceDMAOp, mlir::Value previousDMA,
++                    [&builderBlk](VPUIP::DepthToSpaceDMAOp depthToSpaceDMAOp, mlir::Value previousDMA,
+                                         VPUIPRegMapped::IndexType indexType, mlir::ValueRange waitBarriers,
+                                         mlir::ValueRange updateBarriers) {
+                         const auto inOrder = DimsOrder::fromValue(depthToSpaceDMAOp.input());
+diff --git a/src/vpux_compiler/src/dialect/VPU/ops/m2i_task.cpp b/src/vpux_compiler/src/dialect/VPU/ops/m2i_task.cpp
+index 40182f9760..4a71f7ef39 100644
+--- a/src/vpux_compiler/src/dialect/VPU/ops/m2i_task.cpp
++++ b/src/vpux_compiler/src/dialect/VPU/ops/m2i_task.cpp
+@@ -70,7 +70,7 @@ mlir::LogicalResult vpux::VPU::M2ITaskOp::inferReturnTypes(mlir::MLIRContext* ct
+         outShape[1] = C;
+         outShape[2] = H;
+         outShape[3] = W;
+-    } else if ((oFmt == M2iColorFmt::IL_RGB888)) {
++    } else if (oFmt == M2iColorFmt::IL_RGB888) {
+         outShape[0] = N;
+         outShape[1] = H;
+         outShape[2] = W;
+@@ -79,7 +79,7 @@ mlir::LogicalResult vpux::VPU::M2ITaskOp::inferReturnTypes(mlir::MLIRContext* ct
+         VPUX_THROW("M2iTask unsupported out format '{0}'", oFmt);
+     }
+ 
+-    if ((oFmt == M2iColorFmt::PL_FP16_RGB)) {
++    if (oFmt == M2iColorFmt::PL_FP16_RGB) {
+         outElemType = mlir::Float16Type::get(ctx);
+     }
+ 
+@@ -106,7 +106,7 @@ EMU::BlobWriter::SpecificTask vpux::VPU::M2ITaskOp::serialize(EMU::BlobWriter& w
+         serializedCoefs = getVecFP16(coefs);
+     }
+ 
+-    const auto getTensorCb = [this, &writer](mlir::Value val) {
++    const auto getTensorCb = [&writer](mlir::Value val) {
+         return writer.getTensor(val);
+     };
+     const auto inputs = writer.createVector(getInputs() | transformed(getTensorCb));
+diff --git a/src/vpux_compiler/src/dialect/VPU/ops_interfaces.cpp b/src/vpux_compiler/src/dialect/VPU/ops_interfaces.cpp
+index b5bc051780..92ca1cc688 100644
+--- a/src/vpux_compiler/src/dialect/VPU/ops_interfaces.cpp
++++ b/src/vpux_compiler/src/dialect/VPU/ops_interfaces.cpp
+@@ -12,6 +12,7 @@
+ #include "vpux/compiler/dialect/VPU/ops.hpp"
+ #include "vpux/compiler/utils/attributes.hpp"
+ #include "vpux/compiler/utils/rewriter.hpp"
++#include <iostream>
+ 
+ using namespace vpux;
+ 
+@@ -21,6 +22,7 @@ using namespace vpux;
+ 
+ bool vpux::VPU::supportsSparseInputs(mlir::Operation* op) {
+     const auto compressedInput = [op](mlir::Value operand) {
++	std::cout << "op is " << op << "\n";
+         auto inputShape = operand.getType().cast<vpux::NDTypeInterface>().getShape();
+         if (inputShape[Dims4D::Act::C] < VPU::NCEInvariant::VPU_CHANNEL_ALIGNMENT) {
+             return true;
+diff --git a/src/vpux_compiler/src/dialect/VPU/passes/manual_tiling.cpp b/src/vpux_compiler/src/dialect/VPU/passes/manual_tiling.cpp
+index b1437ee341..04814614bc 100644
+--- a/src/vpux_compiler/src/dialect/VPU/passes/manual_tiling.cpp
++++ b/src/vpux_compiler/src/dialect/VPU/passes/manual_tiling.cpp
+@@ -83,7 +83,7 @@ void ManualTilingPass::safeRunOnFunc() {
+     target.markOpRecursivelyLegal<VPU::NCEClusterTilingOp>([&](mlir::Operation*) {
+         return true;
+     });
+-    target.markUnknownOpDynamicallyLegal([this](mlir::Operation* op) {
++    target.markUnknownOpDynamicallyLegal([](mlir::Operation* op) {
+         if (auto iface = mlir::dyn_cast<VPU::TilingInfoOpInterface>(op)) {
+             if (op->hasAttr(manualTilingStrategy) && !op->hasAttr(manualTilingStrategyApplied)) {
+                 // manual strategy overwrite
+diff --git a/src/vpux_compiler/src/dialect/VPU/passes/strategy_manager/multi_cluster_strategy_utils.cpp b/src/vpux_compiler/src/dialect/VPU/passes/strategy_manager/multi_cluster_strategy_utils.cpp
+index 0b3dde9ea6..a431301eac 100644
+--- a/src/vpux_compiler/src/dialect/VPU/passes/strategy_manager/multi_cluster_strategy_utils.cpp
++++ b/src/vpux_compiler/src/dialect/VPU/passes/strategy_manager/multi_cluster_strategy_utils.cpp
+@@ -316,12 +316,13 @@ double LayerCostModel::clusterComputeTime(VPU::NCEOpInterface nceOp, VPU::MultiC
+                 op->getOperand(0))[Dims4D::Act::C];  // Get input channel (already channel-alignment in previous pass)
+         baseKernelCost = IC * baseKernelCost;
+ 
+-    } else if (mlir::isa<VPU::NCEMaxPoolOp>(op) || mlir::isa<VPU::NCEAveragePoolOp>(op) ||
+-               mlir::isa<VPU::NCEDepthConvolutionOp>(op)) {
+-        baseKernelCost = baseKernelCost;
++//    } else if (mlir::isa<VPU::NCEMaxPoolOp>(op) || mlir::isa<VPU::NCEAveragePoolOp>(op) ||
++//               mlir::isa<VPU::NCEDepthConvolutionOp>(op)) {
++//        baseKernelCost = baseKernelCost;
+     } else if (mlir::isa<VPU::NCEEltwiseOp>(op)) {
+         baseKernelCost = 1;
+-    } else {
++    } else if (!(mlir::isa<VPU::NCEMaxPoolOp>(op) || mlir::isa<VPU::NCEAveragePoolOp>(op) ||
++               mlir::isa<VPU::NCEDepthConvolutionOp>(op))) {
+         VPUX_THROW("Invalid NCE operation type: '{0}'", op->getName());
+     }
+ 
+diff --git a/src/vpux_compiler/src/dialect/VPU/passes/wrap_vpu_ops_in_ncecluster_tiling.cpp b/src/vpux_compiler/src/dialect/VPU/passes/wrap_vpu_ops_in_ncecluster_tiling.cpp
+index e62f9f9090..557d4bfb91 100644
+--- a/src/vpux_compiler/src/dialect/VPU/passes/wrap_vpu_ops_in_ncecluster_tiling.cpp
++++ b/src/vpux_compiler/src/dialect/VPU/passes/wrap_vpu_ops_in_ncecluster_tiling.cpp
+@@ -69,8 +69,10 @@ public:
+ public:
+     mlir::LogicalResult matchAndRewrite(NCEConvolutionOp origOp, mlir::PatternRewriter& rewriter) const final;
+ 
+-private:
++protected:
+     int64_t _numClusters;
++
++private:
+     Logger _log;
+ };
+ 
+@@ -195,8 +197,10 @@ public:
+ public:
+     mlir::LogicalResult matchAndRewrite(NCEDepthConvolutionOp origOp, mlir::PatternRewriter& rewriter) const final;
+ 
+-private:
++protected:
+     int64_t _numClusters;
++
++private:
+     Logger _log;
+ };
+ 
+@@ -313,8 +317,10 @@ public:
+ public:
+     mlir::LogicalResult matchAndRewrite(NCEMaxPoolOp origOp, mlir::PatternRewriter& rewriter) const final;
+ 
+-private:
++protected:
+     int64_t _numClusters;
++
++private:
+     Logger _log;
+ };
+ 
+@@ -410,8 +416,10 @@ public:
+ public:
+     mlir::LogicalResult matchAndRewrite(NCEAveragePoolOp origOp, mlir::PatternRewriter& rewriter) const final;
+ 
+-private:
++protected:
+     int64_t _numClusters;
++
++private:
+     Logger _log;
+ };
+ 
+@@ -485,8 +493,10 @@ public:
+ public:
+     mlir::LogicalResult matchAndRewrite(NCEEltwiseOp origOp, mlir::PatternRewriter& rewriter) const final;
+ 
+-private:
++protected:
+     int64_t _numClusters;
++
++private:
+     Logger _log;
+ };
+ 
+diff --git a/src/vpux_compiler/src/dialect/VPU/utils/ppe_utils.cpp b/src/vpux_compiler/src/dialect/VPU/utils/ppe_utils.cpp
+index 52c96fde51..f36d4bc778 100644
+--- a/src/vpux_compiler/src/dialect/VPU/utils/ppe_utils.cpp
++++ b/src/vpux_compiler/src/dialect/VPU/utils/ppe_utils.cpp
+@@ -28,7 +28,7 @@ double calculateQuantScaleVectorForEltwise(vpux::NDTypeInterface input1ShapedTyp
+     // In case of fully not quantized operation return
+     if (!input1ElementType.isa<mlir::quant::QuantizedType>() && !input2ElementType.isa<mlir::quant::QuantizedType>() &&
+         !outputElementType.isa<mlir::quant::QuantizedType>()) {
+-        return {1.0};
++        return 1.0;
+     }
+ 
+     VPUX_THROW_WHEN(input1ElementType.isa<mlir::quant::UniformQuantizedPerAxisType>() ||
+@@ -69,7 +69,7 @@ double calculateQuantScaleVectorForEltwise(vpux::NDTypeInterface input1ShapedTyp
+         ppeScale = scaleInput1 / scaleOutput;
+     }
+ 
+-    return {ppeScale};
++    return ppeScale;
+ }
+ 
+ double calculateQuantScaleVectorForAvgPool(vpux::NDTypeInterface inputShapedType,
+@@ -82,7 +82,7 @@ double calculateQuantScaleVectorForAvgPool(vpux::NDTypeInterface inputShapedType
+ 
+     // In case of fully not quantized operation return
+     if (!inputElementType.isa<mlir::quant::QuantizedType>() && !outputElementType.isa<mlir::quant::QuantizedType>()) {
+-        return {1.0 / divisor};
++        return 1.0 / divisor;
+     }
+ 
+     VPUX_THROW_WHEN(inputElementType.isa<mlir::quant::UniformQuantizedPerAxisType>() ||
+@@ -106,7 +106,7 @@ double calculateQuantScaleVectorForAvgPool(vpux::NDTypeInterface inputShapedType
+ 
+     VPUX_THROW_UNLESS(scaleInput != 0, "Invalid input scale value '0'");
+     VPUX_THROW_UNLESS(scaleOutput != 0, "Invalid output scale value '0'");
+-    return {scaleInput / scaleOutput / divisor};
++    return scaleInput / scaleOutput / divisor;
+ }
+ 
+ VPU::PPETaskAttr getPPEAttr(VPU::PostOpParams postOpParams, mlir::MLIRContext* ctx) {
+@@ -220,7 +220,7 @@ VPU::PPETaskAttr getNCEEltwisePPETaskAttr(vpux::NDTypeInterface input1Type, vpux
+     }
+ 
+     VPU::PPEMode ppeType = VPU::getPPEMode(opType);
+-    VPU::PPETaskAttr ppeAttr;
++    //VPU::PPETaskAttr ppeAttr;
+     // Since Eltwise operation doesn't have weights table it requires final quantization scaling
+     // to be part of output tensor description. Scale vector will be placed in PPE block and
+     // later used during NCE task serialization
+diff --git a/src/vpux_compiler/src/dialect/VPUIP/ops/m2i_task.cpp b/src/vpux_compiler/src/dialect/VPUIP/ops/m2i_task.cpp
+index a5552c0a52..188b4ebd4c 100644
+--- a/src/vpux_compiler/src/dialect/VPUIP/ops/m2i_task.cpp
++++ b/src/vpux_compiler/src/dialect/VPUIP/ops/m2i_task.cpp
+@@ -29,7 +29,7 @@ VPUIP::BlobWriter::SpecificTask vpux::VPUIP::M2ITaskOp::serialize(VPUIP::BlobWri
+         serializedCoefs = getVecFP16(coefs);
+     }
+ 
+-    const auto getTensorCb = [this, &writer](mlir::Value val) {
++    const auto getTensorCb = [&writer](mlir::Value val) {
+         return writer.getTensorRef(val);
+     };
+     const auto inputs = writer.createVector(getInputs() | transformed(getTensorCb));
+diff --git a/src/vpux_compiler/src/dialect/VPUIP/passes/convert_copy_to_DMA.cpp b/src/vpux_compiler/src/dialect/VPUIP/passes/convert_copy_to_DMA.cpp
+index 9d20b8998c..6b0b523012 100644
+--- a/src/vpux_compiler/src/dialect/VPUIP/passes/convert_copy_to_DMA.cpp
++++ b/src/vpux_compiler/src/dialect/VPUIP/passes/convert_copy_to_DMA.cpp
+@@ -93,6 +93,7 @@ public:
+ 
+ private:
+     Logger _log;
++protected:
+     vpux::VPU::ArchKind _arch;
+ };
+ 
+diff --git a/src/vpux_compiler/src/dialect/VPUIP/passes/fuse_constants.cpp b/src/vpux_compiler/src/dialect/VPUIP/passes/fuse_constants.cpp
+index b1ded3b582..a91fb8616c 100644
+--- a/src/vpux_compiler/src/dialect/VPUIP/passes/fuse_constants.cpp
++++ b/src/vpux_compiler/src/dialect/VPUIP/passes/fuse_constants.cpp
+@@ -44,6 +44,8 @@ private:
+ 
+ private:
+     Logger _log;
++
++protected:
+     mlir::MLIRContext* _ctx;
+ };
+ 
+diff --git a/src/vpux_compiler/src/dialect/VPUIP/passes/profiling.cpp b/src/vpux_compiler/src/dialect/VPUIP/passes/profiling.cpp
+index 1ed410846c..d4d5790670 100644
+--- a/src/vpux_compiler/src/dialect/VPUIP/passes/profiling.cpp
++++ b/src/vpux_compiler/src/dialect/VPUIP/passes/profiling.cpp
+@@ -73,6 +73,8 @@ private:
+ 
+ private:
+     VPUIP::MemKindCreateFunc _memKindCb;
++
++protected:
+     VPU::MemoryKind _memKind{vpux::VPU::MemoryKind::DDR};
+ };
+ 
+diff --git a/src/vpux_compiler/src/dialect/VPUIP/passes/unroll_permute_to_nndma.cpp b/src/vpux_compiler/src/dialect/VPUIP/passes/unroll_permute_to_nndma.cpp
+index 26d2c7938b..d2497ebc1f 100644
+--- a/src/vpux_compiler/src/dialect/VPUIP/passes/unroll_permute_to_nndma.cpp
++++ b/src/vpux_compiler/src/dialect/VPUIP/passes/unroll_permute_to_nndma.cpp
+@@ -443,7 +443,7 @@ mlir::LogicalResult PermuteRewriter::unrollSegmentedOrOverlapped(VPUIP::NCEClust
+     SmallVector<VPUIP::DmaDescriptorAttr> subDmaDescriptors;
+     SmallVector<Byte> ddrOffsets;
+     SmallVector<Shape> subMergedOutputShapes;
+-    Byte ddrOffset(0);
++    //Byte ddrOffset(0);
+ 
+     const auto mergedOutputDimList = VPUIP::getPermuteDMAOutputMergedDimList(innerOutputType, mergedOutputShape);
+     auto tileDimForMergedOutput =
+diff --git a/src/vpux_compiler/src/frontend/IE.cpp b/src/vpux_compiler/src/frontend/IE.cpp
+index a6cf89bd6a..e4f6ac85be 100644
+--- a/src/vpux_compiler/src/frontend/IE.cpp
++++ b/src/vpux_compiler/src/frontend/IE.cpp
+@@ -76,8 +76,8 @@
+ #include <transformations/common_optimizations/mul_conv_fusion.hpp>
+ #include <transformations/common_optimizations/mvn_fusion.hpp>
+ #include <transformations/common_optimizations/pad_fusion.hpp>
+-#include <transformations/common_optimizations/pull_through_reduce.hpp>
+-#include <transformations/common_optimizations/reduce_reshape_fusion.hpp>
++//#include <transformations/common_optimizations/pull_through_reduce.hpp>
++//#include <transformations/common_optimizations/reduce_reshape_fusion.hpp>
+ #include <transformations/common_optimizations/relu_fake_quantize_fusion.hpp>
+ #include <transformations/common_optimizations/shuffle_channels_fusion.hpp>
+ #include <transformations/common_optimizations/space_to_batch_fusion.hpp>
+@@ -137,8 +137,8 @@ ngraph::ParameterVector sortParameters(const ngraph::ParameterVector& orig) {
+ ngraph::ResultVector sortResults(const ngraph::ResultVector& orig) {
+     ngraph::ResultVector out = orig;
+     std::sort(out.begin(), out.end(), [](auto&& r1, auto&& r2) {
+-        const auto n1 = ov::op::util::get_ie_output_name(r1->input_value(0));
+-        const auto n2 = ov::op::util::get_ie_output_name(r2->input_value(0));
++        const auto n1 = ngraph::op::util::get_ie_output_name(r1->input_value(0));
++        const auto n2 = ngraph::op::util::get_ie_output_name(r2->input_value(0));
+         return n1 < n2;
+     });
+     return out;
+@@ -498,7 +498,7 @@ std::unordered_set<std::string> NGraphImporter::getSupportedOps(std::shared_ptr<
+     std::unordered_set<std::string> unsupported;
+     for (const auto& op : netGraph->get_ordered_ops()) {
+         const bool hasParser = (getParser(op) != nullptr);
+-        for (auto&& fusedLayerName : ov::getFusedNamesVector(op)) {
++        for (auto&& fusedLayerName : ngraph::getFusedNamesVector(op)) {
+             if (hasParser) {
+                 supported.emplace(fusedLayerName);
+             } else {
+@@ -3104,66 +3104,65 @@ mlir::RankedTensorType importUserTensor(mlir::MLIRContext* ctx, const InferenceE
+ static void addCommonOptimizationsPasses(ngraph::pass::Manager& manager) {
+     // Disable low_precision_enabled as all plugins handle low-precision sub-graph manually
+     // before CommonOptimization pipeline execution
+-    manager.register_pass<ov::pass::MOCTransformations>(true, false);
++    manager.register_pass<ngraph::pass::MOCTransformations>(true, false);
+ 
+     auto pass_config = manager.get_pass_config();
+-    pass_config->disable<ov::pass::PadFusionConvolution>();
+-    pass_config->disable<ov::pass::PadFusionGroupConvolution>();
+-    pass_config->disable<ov::pass::MVNFusionWithConstantsInside>();
+-    pass_config->disable<ov::pass::PullThroughReduce>();
++    pass_config->disable<ngraph::pass::PadFusionConvolution>();
++    pass_config->disable<ngraph::pass::PadFusionGroupConvolution>();
++    pass_config->disable<ngraph::pass::MVNFusionWithConstantsInside>();
+ 
+     auto common_fusions = manager.register_pass<ngraph::pass::GraphRewrite>();
+-    common_fusions->add_matcher<ov::pass::LSTMCellDecomposition>();
+-    common_fusions->add_matcher<ov::pass::DepthToSpaceFusion>();
+-    common_fusions->add_matcher<ov::pass::ShuffleChannelsFusion>(false);
+-    common_fusions->add_matcher<ov::pass::SpaceToBatchFusion>();
+-    common_fusions->add_matcher<ov::pass::BatchToSpaceFusion>();
+-    common_fusions->add_matcher<ov::pass::TransposeToReshape>();
++    common_fusions->add_matcher<ngraph::pass::LSTMCellDecomposition>();
++    common_fusions->add_matcher<ngraph::pass::DepthToSpaceFusion>();
++    common_fusions->add_matcher<ngraph::pass::ShuffleChannelsFusion>(false);
++    common_fusions->add_matcher<ngraph::pass::SpaceToBatchFusion>();
++    common_fusions->add_matcher<ngraph::pass::BatchToSpaceFusion>();
++    common_fusions->add_matcher<ngraph::pass::TransposeToReshape>();
+     common_fusions->set_name("ngraph::pass::CommonFusions");
+ 
+     auto decomp = manager.register_pass<ngraph::pass::GraphRewrite>();
+-    decomp->add_matcher<ov::pass::Gelu7Downgrade>();
+-    decomp->add_matcher<ov::pass::BidirectionalSequenceDecomposition>();
+-    decomp->add_matcher<ov::pass::LogSoftmaxDecomposition>();
+-    decomp->add_matcher<ov::pass::ConvertBroadcastToTiles>();
+-    decomp->add_matcher<ov::pass::ConvertMod>();
+-    decomp->add_matcher<ov::pass::ConvertGELU>();
+-    decomp->add_matcher<ov::pass::BatchNormDecomposition>();
+-    decomp->add_matcher<ov::pass::EinsumDecomposition>();
+-    decomp->add_matcher<ov::pass::GatherNegativeConstIndicesNormalize>();
+-    decomp->add_matcher<ov::pass::DropoutWithRandomUniformReplacer>();
++    decomp->add_matcher<ngraph::pass::Gelu7Downgrade>();
++    decomp->add_matcher<ngraph::pass::BidirectionalSequenceDecomposition>();
++    decomp->add_matcher<ngraph::pass::LogSoftmaxDecomposition>();
++    decomp->add_matcher<ngraph::pass::ConvertBroadcastToTiles>();
++    decomp->add_matcher<ngraph::pass::ConvertMod>();
++    decomp->add_matcher<ngraph::pass::ConvertGELU>();
++    decomp->add_matcher<ngraph::pass::BatchNormDecomposition>();
++    decomp->add_matcher<ngraph::pass::EinsumDecomposition>();
++    decomp->add_matcher<ngraph::pass::GatherNegativeConstIndicesNormalize>();
++    decomp->add_matcher<ngraph::pass::DropoutWithRandomUniformReplacer>();
+     decomp->set_name("ngraph::pass::CommonDecompositions");
+ 
+     // CF is required after all decompositions
+     manager.register_pass<ngraph::pass::ConstantFolding>();
+ 
+     // LinOpSequenceFusion must be executed after all decompositions
+-    manager.register_pass<ov::pass::LinOpSequenceFusion>();
+-    manager.register_pass<ov::pass::UnrollIf>();
+-    manager.register_pass<ov::pass::UnrollTensorIterator>();
++    manager.register_pass<ngraph::pass::LinOpSequenceFusion>();
++    manager.register_pass<ngraph::pass::UnrollIf>();
++    manager.register_pass<ngraph::pass::UnrollTensorIterator>();
+ 
+     auto conv_fusions = manager.register_pass<ngraph::pass::GraphRewrite>();
+-    conv_fusions->add_matcher<ov::pass::ConvolutionMultiplyFusion>();
+-    conv_fusions->add_matcher<ov::pass::GroupConvolutionMultiplyFusion>();
+-    conv_fusions->add_matcher<ov::pass::ConvolutionBackpropDataMultiplyFusion>();
+-    conv_fusions->add_matcher<ov::pass::GroupConvolutionBackpropDataMultiplyFusion>();
+-    conv_fusions->add_matcher<ov::pass::MultiplyConvolutionFusion>();
+-    conv_fusions->add_matcher<ov::pass::MultiplyGroupConvolutionFusion>();
+-    conv_fusions->add_matcher<ov::pass::MultiplyConvolutionBackpropDataFusion>();
+-    conv_fusions->add_matcher<ov::pass::MultiplyGroupConvolutionBackpropDataFusion>();
++    conv_fusions->add_matcher<ngraph::pass::ConvolutionMultiplyFusion>();
++    conv_fusions->add_matcher<ngraph::pass::GroupConvolutionMultiplyFusion>();
++    conv_fusions->add_matcher<ngraph::pass::ConvolutionBackpropDataMultiplyFusion>();
++    conv_fusions->add_matcher<ngraph::pass::GroupConvolutionBackpropDataMultiplyFusion>();
++    conv_fusions->add_matcher<ngraph::pass::MultiplyConvolutionFusion>();
++    conv_fusions->add_matcher<ngraph::pass::MultiplyGroupConvolutionFusion>();
++    conv_fusions->add_matcher<ngraph::pass::MultiplyConvolutionBackpropDataFusion>();
++    conv_fusions->add_matcher<ngraph::pass::MultiplyGroupConvolutionBackpropDataFusion>();
+     conv_fusions->set_name("ngraph::pass::ConvFusions");
+ 
+     manager.register_pass<ngraph::pass::ConstantFolding>();
+-    manager.register_pass<ov::pass::ConvertGather1ToGather7>();
+-    manager.register_pass<ov::pass::ConvertGather7ToGather8>();
+-    manager.register_pass<ov::pass::ConvertDeformableConv8To1>();
+-    manager.register_pass<ov::pass::ConvertMaxPool8ToMaxPool1>();
+-    manager.register_pass<ov::pass::ConvertSoftMax1ToSoftMax8>();
++    manager.register_pass<ngraph::pass::ConvertGather1ToGather7>();
++    manager.register_pass<ngraph::pass::ConvertGather7ToGather8>();
++    manager.register_pass<ngraph::pass::ConvertDeformableConv8To1>();
++    manager.register_pass<ngraph::pass::ConvertMaxPool8ToMaxPool1>();
++    manager.register_pass<ngraph::pass::ConvertSoftMax1ToSoftMax8>();
+ 
+     // StridesOptimization should be at the very end
+     // because we cannot insert any MaxPools since they may prevent
+     // other optimizations
+-    manager.register_pass<ov::pass::StridesOptimization>();
++    manager.register_pass<ngraph::pass::StridesOptimization>();
+ }
+ 
+ void runNGraphPasses(const std::shared_ptr<ngraph::Function>& netGraph,
+@@ -3172,17 +3171,17 @@ void runNGraphPasses(const std::shared_ptr<ngraph::Function>& netGraph,
+     auto scopeTiming = rootTiming.nest("Common nGraph passes");
+ 
+     ngraph::pass::Manager manager;
+-    manager.register_pass<ov::pass::InitNodeInfo>();
++    manager.register_pass<ngraph::pass::InitNodeInfo>();
+     manager.register_pass<vpux::passes::ConvertInstanceNormToMVN>();
+     manager.register_pass<vpux::pass::RemoveSplitConcat>();
+-    manager.register_pass<ov::pass::ConvertQuantizeDequantize>();
+-    manager.register_pass<ov::pass::WeightsDequantizeToFakeQuantize>();
++    manager.register_pass<ngraph::pass::ConvertQuantizeDequantize>();
++    manager.register_pass<ngraph::pass::WeightsDequantizeToFakeQuantize>();
+     manager.register_pass<ngraph::pass::ConstantFolding>();
+     manager.register_pass<vpux::pass::FuseScaleShift>();
+-    manager.register_pass<ov::pass::ConvertInterpolate1ToInterpolate4>();
++    manager.register_pass<ngraph::pass::ConvertInterpolate1ToInterpolate4>();
+     manager.register_pass<ngraph::pass::ConvertNMS5ToLegacyMatcher>();
+     manager.register_pass<ngraph::pass::ConstantFolding>();
+-    manager.register_pass<ov::pass::ConvertGELU>();
++    manager.register_pass<ngraph::pass::ConvertGELU>();
+     manager.register_pass<vpux::passes::OnnxReorgPatternToDarkNetReorg>();
+     manager.register_pass<vpux::pass::FuseScaleAfterClamp>();
+     addCommonOptimizationsPasses(manager);
+@@ -3193,7 +3192,7 @@ void runNGraphPasses(const std::shared_ptr<ngraph::Function>& netGraph,
+         manager.register_pass<vpux::passes::AlignScales>();
+     }
+ 
+-    manager.register_pass<ov::pass::ReluFakeQuantizeFusion>();
++    manager.register_pass<ngraph::pass::ReluFakeQuantizeFusion>();
+     // we need additionally propagate FQs because some ReLUs may be removed
+     manager.register_pass<vpux::passes::PropagateFQ>();
+     manager.register_pass<vpux::passes::CleanUpFQ>();
+@@ -3259,7 +3258,7 @@ void addCNNNetworkOp(mlir::OpBuilder& builder, mlir::FlatSymbolRefAttr mainFuncN
+ 
+     auto outputsInfoBuilder = mlir::OpBuilder::atBlockBegin(&cnnOp.outputsInfo().front(), builder.getListener());
+     for (const auto& result : sortedResults) {
+-        const auto resultName = ov::op::util::get_ie_output_name(result->input_value(0));
++        const auto resultName = ngraph::op::util::get_ie_output_name(result->input_value(0));
+         const auto& userOutput = outputsInfo.at(resultName);
+         const auto& userDesc = userOutput->getTensorDesc();
+ 
+diff --git a/src/vpux_compiler/src/utils/dot_graph_writer.cpp b/src/vpux_compiler/src/utils/dot_graph_writer.cpp
+index 7b2cfdb5d2..9dd3cc16f3 100644
+--- a/src/vpux_compiler/src/utils/dot_graph_writer.cpp
++++ b/src/vpux_compiler/src/utils/dot_graph_writer.cpp
+@@ -35,7 +35,7 @@ using namespace vpux;
+ 
+ namespace {
+ 
+-constexpr size_t MAX_EDGE_NUM = 64;
++//constexpr size_t MAX_EDGE_NUM = 64;
+ constexpr size_t MAX_ATTR_STR_SIZE = 80;
+ 
+ enum class EdgeDir { EDGE_SKIP, EDGE_NORMAL, EDGE_REVERSE };
+diff --git a/src/vpux_compiler/src/utils/partitioner.cpp b/src/vpux_compiler/src/utils/partitioner.cpp
+index 6808235001..4c2f775674 100644
+--- a/src/vpux_compiler/src/utils/partitioner.cpp
++++ b/src/vpux_compiler/src/utils/partitioner.cpp
+@@ -59,7 +59,7 @@ public:
+ #endif
+     }
+ 
+-private:
++protected:
+     const Partitioner& _p;
+ };
+ 
+diff --git a/src/vpux_ngraph_transformations/src/passes/fuse_mvn.cpp b/src/vpux_ngraph_transformations/src/passes/fuse_mvn.cpp
+index b14ef5f630..f759ad79f9 100644
+--- a/src/vpux_ngraph_transformations/src/passes/fuse_mvn.cpp
++++ b/src/vpux_ngraph_transformations/src/passes/fuse_mvn.cpp
+@@ -167,7 +167,7 @@ ConvertLayerNormToMVN::ConvertLayerNormToMVN() {
+     
+         auto const_eps_node = std::dynamic_pointer_cast<ngraph::opset6::Constant>(patternToOutput.at(eps).get_node_shared_ptr());
+         float eps_value;
+-        if (!ov::op::util::get_single_value(const_eps_node, eps_value)) {
++        if (!ngraph::op::util::get_single_value(const_eps_node, eps_value)) {
+             return false;
+         }
+ 
+diff --git a/src/vpux_translate_utils/include/vpux/hwtest/test_case_json_parser.hpp b/src/vpux_translate_utils/include/vpux/hwtest/test_case_json_parser.hpp
+index a2d473a2ef..ccb0206d3b 100644
+--- a/src/vpux_translate_utils/include/vpux/hwtest/test_case_json_parser.hpp
++++ b/src/vpux_translate_utils/include/vpux/hwtest/test_case_json_parser.hpp
+@@ -349,7 +349,7 @@ private:
+     llvm::SmallVector<OutputLayer> outLayers_;
+     ActivationLayer activationLayer_;
+     M2iLayer m2iLayer_;
+-    bool hasActivationLayer_;
++    //bool hasActivationLayer_;
+     std::string kernelFilename_;
+     std::string caseTypeStr_;
+     vpux::VPU::PPEMode ppeLayerType_ = vpux::VPU::PPEMode::ADD;
+diff --git a/src/vpux_translate_utils/src/hwtest/buildHaloMultiClusteringTest.cpp b/src/vpux_translate_utils/src/hwtest/buildHaloMultiClusteringTest.cpp
+index a065dd4978..611b2702eb 100644
+--- a/src/vpux_translate_utils/src/hwtest/buildHaloMultiClusteringTest.cpp
++++ b/src/vpux_translate_utils/src/hwtest/buildHaloMultiClusteringTest.cpp
+@@ -619,6 +619,7 @@ private:
+     }
+ 
+     ArrayRef<int64_t> clustersPerDim_;
++protected:
+     int64_t heightHaloSz_;
+     int64_t widthHaloSz_;
+ };
+@@ -653,6 +654,7 @@ private:
+     }
+ 
+     ArrayRef<int64_t> clustersPerDim_;
++protected:
+     int64_t heightHaloSz_;
+ };
+ 
+diff --git a/src/zero_backend/include/zero_executor.h b/src/zero_backend/include/zero_executor.h
+index aaa2c56374..abaa6e56b6 100644
+--- a/src/zero_backend/include/zero_executor.h
++++ b/src/zero_backend/include/zero_executor.h
+@@ -85,7 +85,7 @@ public:
+     // made public for InferRequest to make accessible Pipeline and its details (HostMem)
+     // protected:
+     struct CommandList {
+-        friend class CommandQueue;
++        friend struct CommandQueue;
+         CommandList() = delete;
+         CommandList(const ze_device_handle_t& device_handle, const ze_context_handle_t& context,
+                     ze_graph_dditable_ext_t* graph_ddi_table_ext);
+@@ -185,9 +185,10 @@ public:
+         void reset() const;
+         ~Event();
+ 
+-    private:
++    protected:
+         ze_device_handle_t _device_t = nullptr;
+         ze_context_handle_t _context = nullptr;
++    private:
+         ze_event_handle_t _handle = nullptr;
+     };
+ 
+@@ -278,6 +279,7 @@ public:
+         std::array<CommandList, stage::COUNT> _command_list;
+         std::array<Fence, stage::COUNT> _fence;
+         EventPool _event_pool;
++    protected:
+         std::array<Event, stage::COUNT> _event;
+     };
+ 
+diff --git a/tools/legacy/single-image-test/main.cpp b/tools/legacy/single-image-test/main.cpp
+index 6a1aaa7d5b..236544a1c9 100644
+--- a/tools/legacy/single-image-test/main.cpp
++++ b/tools/legacy/single-image-test/main.cpp
+@@ -483,6 +483,8 @@ ie::MemoryBlob::Ptr loadBinary(const ie::TensorDesc& desc, const std::string& fi
+         case ie::Precision::U8:
+             implicitPrecision = true;
+             break;
++	default:
++	    break;
+         }
+         break;
+     }
+diff --git a/tools/single-image-test/main.cpp b/tools/single-image-test/main.cpp
+index 3fe2889317..8d33d9e01d 100644
+--- a/tools/single-image-test/main.cpp
++++ b/tools/single-image-test/main.cpp
+@@ -505,6 +505,8 @@ ie::MemoryBlob::Ptr loadBinary(const ie::TensorDesc& desc, const std::string& fi
+         case ie::Precision::U8:
+             implicitPrecision = true;
+             break;
++	default:
++	    break;
+         }
+         break;
+     }
+@@ -1583,6 +1585,8 @@ static ie::Precision toIE(const ov::element::Type& type) {
+         return ie::Precision::FP16;
+     case ov::element::undefined:
+         return ie::Precision::UNSPECIFIED;
++    default:
++	break;
+     }
+     std::stringstream ss;
+     ss << "Failed to convert ov::Precision: " << type << " to IE::Precision";
+diff --git a/tools/vpux-binutils/vpux-loader/main.cpp b/tools/vpux-binutils/vpux-loader/main.cpp
+index a802a54942..78d8573256 100644
+--- a/tools/vpux-binutils/vpux-loader/main.cpp
++++ b/tools/vpux-binutils/vpux-loader/main.cpp
+@@ -101,7 +101,7 @@ public:
+         (void)devBuffer;
+     }
+ 
+-    void lock(DeviceBuffer& devBuffer) {
++    void lock(DeviceBuffer& devBuffer) override {
+         void* cpu_addr = reinterpret_cast<void*>(devBuffer.cpu_addr());
+         void* vpu_addr = reinterpret_cast<void*>(devBuffer.vpu_addr());
+         size_t len = devBuffer.size();
+@@ -110,7 +110,7 @@ public:
+                      vpu_addr, len);
+     }
+ 
+-    void unlock(DeviceBuffer& devBuffer) {
++    void unlock(DeviceBuffer& devBuffer) override {
+         void* cpu_addr = reinterpret_cast<void*>(devBuffer.cpu_addr());
+         void* vpu_addr = reinterpret_cast<void*>(devBuffer.vpu_addr());
+         size_t len = devBuffer.size();
+-- 
+2.34.1
+
