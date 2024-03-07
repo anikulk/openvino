@@ -21,6 +21,9 @@ OutputVector conv2d(const ov::frontend::tensorflow_lite::NodeContext& node) {
                             " name=",
                             node.get_name());
     OutputVector output;
+    printf("Keyon: Running from %s:%d\n", __FILE__, __LINE__);
+//    std::cout << " Keyon: approximate " << decoder->get_attribute(&tflite::GeluOptions::approximate) << std::endl;
+
     get_conv(output, node, decoder, &ov::frontend::tensorflow::op::translate_conv_2d_op);
     get_bias(output, node, decoder);
     get_activation(output, decoder);

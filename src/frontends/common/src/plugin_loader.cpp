@@ -137,12 +137,14 @@ bool PluginInfo::is_file_name_match(const std::string& name) const {
 }
 
 bool PluginInfo::load() {
+    printf("Keyon: Running from %s:%d\n", __FILE__, __LINE__);
     if (m_loaded) {
         return true;
     } else if (m_load_failed) {
         return false;
     }
     if (!load_internal()) {
+    printf("Keyon: Running from %s:%d\n", __FILE__, __LINE__);
         m_load_failed = true;
         return false;
     }
@@ -155,6 +157,8 @@ bool PluginInfo::load() {
 
 bool PluginInfo::load_internal() {
     std::shared_ptr<void> so;
+    printf("Keyon: Running from %s:%d\n", __FILE__, __LINE__);
+    std::cout << " m_file_path.c_str() " << m_file_path.c_str() << std::endl;
     try {
 #ifdef OPENVINO_ENABLE_UNICODE_PATH_SUPPORT
         so = ov::util::load_shared_object(ov::util::string_to_wstring(m_file_path).c_str());
@@ -162,6 +166,9 @@ bool PluginInfo::load_internal() {
         so = ov::util::load_shared_object(m_file_path.c_str());
 #endif
     } catch (const std::exception& ex) {
+    printf("Keyon: Running from %s:%d\n", __FILE__, __LINE__);
+    std::cout << "Error loading FrontEnd '" << m_file_path << "': " << ex.what() \
+                       << " Please check that frontend library doesn't have unresolved dependencies." << std::endl;
         OPENVINO_DEBUG << "Error loading FrontEnd '" << m_file_path << "': " << ex.what()
                        << " Please check that frontend library doesn't have unresolved dependencies." << std::endl;
         return false;
@@ -169,12 +176,14 @@ bool PluginInfo::load_internal() {
 
     auto info_addr = reinterpret_cast<void* (*)()>(ov::util::get_symbol(so, "get_api_version"));
     if (!info_addr) {
+    printf("Keyon: Running from %s:%d\n", __FILE__, __LINE__);
         OPENVINO_DEBUG << "Loaded FrontEnd [" << m_file_path << "] doesn't have API version" << std::endl;
         return false;
     }
     FrontEndVersion plug_info{reinterpret_cast<FrontEndVersion>(info_addr())};
 
     if (plug_info != OV_FRONTEND_API_VERSION) {
+    printf("Keyon: Running from %s:%d\n", __FILE__, __LINE__);
         // Plugin has incompatible API version, do not load it
         OPENVINO_DEBUG << "Loaded FrontEnd [" << m_file_path << "] has incompatible API version" << plug_info
                        << std::endl;
@@ -183,6 +192,7 @@ bool PluginInfo::load_internal() {
 
     auto creator_addr = reinterpret_cast<void* (*)()>(ov::util::get_symbol(so, "get_front_end_data"));
     if (!creator_addr) {
+    printf("Keyon: Running from %s:%d\n", __FILE__, __LINE__);
         OPENVINO_DEBUG << "Loaded FrontEnd [" << m_file_path << "] doesn't have Frontend Data" << std::endl;
         return false;
     }

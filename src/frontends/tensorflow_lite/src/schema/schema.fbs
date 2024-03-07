@@ -1147,7 +1147,7 @@ table BucketizeOptions {
 }
 
 table GeluOptions {
-  approximate: bool;
+  approximate:bool;
 }
 
 table DynamicUpdateSliceOptions {

@@ -20,10 +20,14 @@ namespace frontend {
 namespace tensorflow {
 namespace op {
 
-OutputVector translate_gelu(const NodeContext& node) {
+OutputVector translate_gelu_op(const NodeContext& node) {
+    default_op_checks(node, 1, {"GELU"});
     auto input = node.get_input(0);
-    auto approximate = node.get_attribute<bool>("approximate", false);
-    const auto mode = approximate ? ov::op::GeluApproximationMode::TANH : ov::op::GeluApproximationMode::ERF;
+//    bool att = node.has_attribute<bool>("approximate");
+//	std::cout << "Keyon: has attribut  " << att << std::endl;
+    auto approximate = node.get_attribute<bool>("approximate");
+//    auto approximate = node.get_attribute<element::boolean>("approximate");
+    const auto mode = (approximate == true) ? ov::op::GeluApproximationMode::TANH : ov::op::GeluApproximationMode::ERF;
     auto res = make_shared<ov::op::v7::Gelu>(input, mode);
     set_node_name(node.get_name(), res);
     return res->outputs();

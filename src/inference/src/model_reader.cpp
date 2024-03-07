@@ -111,6 +111,7 @@ std::shared_ptr<ov::Model> read_model(const std::string& modelPath,
                                       const std::string& binPath,
                                       const std::vector<ov::Extension::Ptr>& extensions,
                                       bool enable_mmap) {
+printf("Keyon: Running from %s:%d\n", __FILE__, __LINE__);
     // Fix unicode name
 #if defined(OPENVINO_ENABLE_UNICODE_PATH_SUPPORT) && defined(_WIN32)
     std::wstring model_path = ov::util::string_to_wstring(modelPath.c_str());
@@ -135,6 +136,7 @@ std::shared_ptr<ov::Model> read_model(const std::string& modelPath,
     }
     params.emplace_back(enable_mmap);
 
+printf("Keyon: Running from %s:%d\n", __FILE__, __LINE__);
     FE = manager.load_by_model(params);
     if (FE) {
         FE->add_extension(extensions);
@@ -147,6 +149,7 @@ std::shared_ptr<ov::Model> read_model(const std::string& modelPath,
         return model;
     }
 
+printf("Keyon: Running from %s:%d\n", __FILE__, __LINE__);
     const auto fileExt = modelPath.substr(modelPath.find_last_of(".") + 1);
     std::string FEs;
     for (const auto& fe_name : manager.get_available_front_ends())

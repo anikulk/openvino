@@ -31,6 +31,7 @@ public:
 
     template<class Ret, class Class>
     Ret get_attribute(Ret (Class::*member)() const) const {
+//	std::cout << " builtin_options_type  " << Class << std::endl;
         const auto opts = m_node_def->builtin_options_as<Class>();
         FRONT_END_GENERAL_CHECK(opts != nullptr, "Chosen Builtin Option is not accessible for this node");
         return (opts->*member)();

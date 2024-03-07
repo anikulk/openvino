@@ -15,10 +15,13 @@ namespace op {
 
 OutputVector batch_matmul(const ov::frontend::tensorflow_lite::NodeContext& node) {
     const auto& decoder = get_decoder(node);
+    printf("Keyon: Running from %s:%d\n", __FILE__, __LINE__);
+
     std::map<std::string, ov::Any> attrs{
         {"adj_x", decoder->get_attribute(&tflite::BatchMatMulOptions::adj_x)},
         {"adj_y", decoder->get_attribute(&tflite::BatchMatMulOptions::adj_y)},
     };
+    std::cout << " Keyon: adj_x " <<  decoder->get_attribute(&tflite::BatchMatMulOptions::adj_x)<< std::endl;
     return attribute_helper(node, attrs, ov::frontend::tensorflow::op::translate_batch_mat_mul_op);
 }
 

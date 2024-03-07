@@ -70,7 +70,9 @@ public:
         // Load all not loaded plugins/frontends
         std::lock_guard<std::mutex> guard(m_loading_mutex);
         for (auto& plugin_info : m_plugins) {
+	    std::cout << " Keyon: looking for fe " << plugin_info.m_file_path << " \n " << std::endl;
             if (!plugin_info.load()) {
+	    std::cout << " Keyon: fe " << plugin_info.m_file_path << " is not loaded!\n " << std::endl;
                 OPENVINO_DEBUG << "Frontend load failed: " << plugin_info.m_file_path << "\n";
                 continue;
             }
@@ -81,39 +83,53 @@ public:
 
     FrontEnd::Ptr load_by_model(const std::vector<ov::Any>& variants) {
         std::lock_guard<std::mutex> guard(m_loading_mutex);
+	//available_front_ends();
         // Step 1: Search from hard-coded prioritized frontends first
+	    printf("Keyon: Running from %s:%d\n", __FILE__, __LINE__);
         auto ptr = search_priority(variants);
         if (ptr) {
+	    printf("Keyon: Running from %s:%d\n", __FILE__, __LINE__);
             return ptr;
         }
         // Step 2: Load and search from all available frontends
         for (auto& plugin : m_plugins) {
+	    printf("Keyon: Running from %s:%d\n", __FILE__, __LINE__);
+	    std::cout << " fe name " << plugin.get_creator().m_name << std::endl;
             if (!plugin.load()) {
                 continue;
             }
             auto fe = plugin.get_creator().m_creator();
+	    printf("Keyon: Running from %s:%d\n", __FILE__, __LINE__);
+	    std::cout << " fe name " << plugin.get_creator().m_name << std::endl;
+//	    OPENVINO_ERR << " fe name " << plugin.get_creator().m_name << "\n";
             OPENVINO_ASSERT(fe, "Frontend error: frontend '", plugin.get_creator().m_name, "' created null FrontEnd");
             if (fe->supported(variants)) {
+	    printf("Keyon: Running from %s:%d\n", __FILE__, __LINE__);
                 return make_frontend(plugin);
             }
         }
+	    printf("Keyon: Running from %s:%d\n", __FILE__, __LINE__);
         return nullptr;
     }
 
     void register_front_end(const std::string& name, FrontEndFactory creator) {
+	    printf("Keyon: Running from %s:%d\n", __FILE__, __LINE__);
         PluginInfo plugin_info(name, std::move(creator));
         std::lock_guard<std::mutex> guard(m_loading_mutex);
         m_plugins.push_back(std::move(plugin_info));
+	    std::cout << " fe name " << name << " registered.\n" << std::endl;
     }
 
     void register_front_end(const std::string& name, const std::string& library_path) {
         auto lib_path = ov::util::from_file_path(ov::util::get_plugin_path(library_path));
+	    printf("Keyon: Running from %s:%d\n", __FILE__, __LINE__);
         PluginInfo plugin;
         plugin.m_file_path = lib_path;
         plugin.m_file_name = ov::util::get_file_name(lib_path);
         FRONT_END_GENERAL_CHECK(plugin.load(), "Cannot load frontend ", plugin.get_name_from_file());
         std::lock_guard<std::mutex> guard(m_loading_mutex);
         m_plugins.push_back(std::move(plugin));
+	    std::cout << " fe name " << name << " registered.\n" << std::endl;
     }
 
     static void shutdown() {
@@ -139,6 +155,7 @@ private:
 
     FrontEnd::Ptr search_priority(const std::vector<ov::Any>& variants) {
         // Map between file extension and suitable frontend
+	    printf("Keyon: Running from %s:%d\n", __FILE__, __LINE__);
         static const std::map<std::string, FrontEndNames> priority_fe_extensions = {
             {".xml", {"ir", "ir"}},
             {".onnx", {"onnx", "onnx"}},
@@ -161,6 +178,7 @@ private:
         }
         std::string model_path;
 
+	    printf("Keyon: Running from %s:%d\n", __FILE__, __LINE__);
         const auto& model_variant = variants.at(0);
         if (model_variant.is<std::string>()) {
             const auto& tmp_path = model_variant.as<std::string>();
@@ -171,10 +189,15 @@ private:
             model_path = ov::util::wstring_to_string(wpath);
 #endif
         }
+	    printf("Keyon: Running from %s:%d\n", __FILE__, __LINE__);
         if (!model_path.empty()) {
             auto ext = ov::util::get_file_ext(model_path);
             auto it = priority_fe_extensions.find(ext);
+	    printf("Keyon: Running from %s:%d\n", __FILE__, __LINE__);
+    std::cout << " file ext " << ext << std::endl;
+//    std::cout << " matched it " << it << std::endl;
             if (it != priority_fe_extensions.end()) {
+	    printf("Keyon: Running from %s:%d\n", __FILE__, __LINE__);
                 // Priority FE is found by file extension, try this first
                 auto list_it = std::find(priority_list.begin(), priority_list.end(), it->second);
                 OPENVINO_ASSERT(list_it != priority_list.end(),
@@ -183,20 +206,26 @@ private:
                 priority_list.splice(priority_list.begin(), priority_list, list_it);
             }
         }
+	    printf("Keyon: Running from %s:%d\n", __FILE__, __LINE__);
         for (const auto& priority_info : priority_list) {
             auto plugin_it = std::find_if(m_plugins.begin(), m_plugins.end(), [&priority_info](const PluginInfo& info) {
                 return name_match(info, priority_info);
             });
             if (plugin_it == m_plugins.end()) {
+	    printf("Keyon: Running from %s:%d\n", __FILE__, __LINE__);
                 continue;  // One of standard plugins is missing (correct case)
             }
+	    printf("Keyon: Running from %s:%d\n", __FILE__, __LINE__);
             auto& plugin_info = *plugin_it;
             if (!plugin_info.is_loaded()) {
+	    printf("Keyon: Running from %s:%d\n", __FILE__, __LINE__);
                 if (!plugin_info.load()) {
+	    printf("Keyon: Running from %s:%d\n", __FILE__, __LINE__);
                     // If standard plugin can't be loaded, it can also be ok (incompatible version, etc)
                     continue;
                 }
             }
+	    printf("Keyon: Running from %s:%d\n", __FILE__, __LINE__);
             // Plugin from priority list is loaded, create FrontEnd and check if it supports model loading
             auto fe = plugin_info.get_creator().m_creator();
             if (fe && fe->supported(variants)) {
