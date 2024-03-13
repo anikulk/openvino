@@ -13,6 +13,7 @@
 // clang-format off
 #include "openvino/openvino.hpp"
 #include "openvino/pass/serialize.hpp"
+#include <openvino/pass/manager.hpp>
 
 #ifndef IN_OV_COMPONENT
 #    define IN_OV_COMPONENT
@@ -597,6 +598,9 @@ int main(int argc, char* argv[]) {
 
             auto startTime = Time::now();
             auto model = core.read_model(FLAGS_m);
+            ov::pass::Manager manager;
+            manager.register_pass<ov::pass::Serialize>("/tmp/model.xml", "/tmp/model.bin");
+            manager.run_passes(model);
             auto duration_ms = get_duration_ms_till_now(startTime);
             slog::info << "Read model took " << double_to_string(duration_ms) << " ms" << slog::endl;
             slog::info << "Original model I/O parameters:" << slog::endl;
@@ -1081,7 +1085,6 @@ int main(int argc, char* argv[]) {
 
         auto duration_ms = inferRequestsQueue.get_latencies()[0];
         slog::info << "First inference took " << double_to_string(duration_ms) << " ms" << slog::endl;
-
         if (statistics) {
             statistics->add_parameters(
                 StatisticsReport::Category::EXECUTION_RESULTS,

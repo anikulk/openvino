@@ -57,11 +57,41 @@ public:
         return m_data;
     }
 
+    int32_t get_size() const {
+        int32_t size = 1;
+        for (int i = 0; i < get_partial_shape().get_shape().size(); i++) {
+                size *= get_partial_shape().get_shape()[i];
+        }
+        return size;
+    }
+    bool is_i16() {
+        if (get_element_type() == element::i16) {
+            return true;
+        }
+        return false;
+    }
+
+    const void get_dequantized_data(void *deq_data) const {
+        int32_t size = 1;
+        if (get_element_type() == element::i16) {
+            for (int i = 0; i < get_partial_shape().get_shape().size(); i++) {
+                size *= get_partial_shape().get_shape()[i];
+            }
+            int32_t value;
+            for (int i = 0; i < size; ++i) {
+                value = *((int16_t*) (m_data) + i);
+                *((float*)(deq_data) + i) = static_cast<float>(m_quantization->get_scale()[0] * (value));
+            }
+        }
+        return;
+    }
+
 protected:
     std::shared_ptr<ov::frontend::tensorflow_lite::QuantizationInfo> m_quantization;
     std::shared_ptr<ov::frontend::tensorflow_lite::SparsityInfo> m_sparsity;
     int64_t m_input_idx = -1, m_output_idx = -1;
     const void* m_data;
+    const void* m_deq_data;
 };
 
 }  // namespace tensorflow_lite

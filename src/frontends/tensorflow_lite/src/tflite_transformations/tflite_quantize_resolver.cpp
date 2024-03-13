@@ -137,7 +137,7 @@ pass::TFLQuantizeReplacer::TFLQuantizeReplacer() {
         auto zp_node = ov::opset10::Constant::create(element::f32, zp_shape, zp);
         auto scale_node = ov::opset10::Constant::create(element::f32, scale_shape, scale);
 
-        if (is_constant) {
+        if (is_constant && (tfl_quantize->get_original_type().bitwidth() != 16)) {
             fuse_zp_to_weights(output, zp, zp_shape);
             output = make_shared<Convert>(output, element::f32);
             disable_constant_folding(output.get_node_shared_ptr());
@@ -149,6 +149,8 @@ pass::TFLQuantizeReplacer::TFLQuantizeReplacer() {
             tfl_quantize->output(0).replace(output);
             return true;
         }
+        tfl_quantize->output(0).replace(output);
+        return true;
         if (in_type != element::f32) {
             output = make_shared<Convert>(output, element::f32);
         }

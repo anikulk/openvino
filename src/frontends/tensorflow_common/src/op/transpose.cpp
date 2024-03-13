@@ -23,7 +23,6 @@ OutputVector translate_transpose_op(const NodeContext& node) {
     default_op_checks(node, 2, {"Transpose", "TRANSPOSE"}, true);
     auto x = node.get_input(0);
     auto perm = node.get_input(1);
-
     auto complex_type_mark = as_type_ptr<ComplexTypeMark>(x.get_node_shared_ptr());
     if (complex_type_mark) {
         element::Type complex_part_type = complex_type_mark->get_complex_part_type();

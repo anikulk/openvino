@@ -110,11 +110,24 @@ void InputModel::InputModelTFLiteImpl::load_model() {
             if (m_tensor_places.count(name) == 0) {
                 m_tensor_places[name] = place;
                 if (auto data = place->get_data()) {
-                    auto constant = ov::op::v0::Constant::create(place->get_element_type(),
+                    int32_t size = place->get_size();
+                    if (place->is_i16()) {
+                        float deq_data[size];
+                        void* deq_data_fl = &deq_data;
+                        place->get_dequantized_data(deq_data_fl);
+                        auto constant = ov::op::v0::Constant::create(element::f32,
+                                                                 place->get_partial_shape().to_shape(),
+                                                                 deq_data_fl);
+                        constant->set_friendly_name(name);
+                        m_tensor_values[name] = constant;
+                    }
+                    else {
+                        auto constant = ov::op::v0::Constant::create(place->get_element_type(),
                                                                  place->get_partial_shape().to_shape(),
                                                                  data);
-                    constant->set_friendly_name(name);
+                        constant->set_friendly_name(name);
                     m_tensor_values[name] = constant;
+                    }
                 } else if (place->get_partial_shape() == PartialShape{0}) {  // empty constant
                     auto constant = ov::op::v0::Constant::create(place->get_element_type(),
                                                                  place->get_partial_shape().to_shape(),

@@ -206,7 +206,7 @@ void FrontEnd::translate_graph(const InputModel::Ptr& model,
             input_tensor != nullptr,
             "Inputs of ov::frontend::tensorflow_lite::InputModel must be TensorLitePlace instances");
         const auto name = input_tensor->get_names()[0];
-        auto parameter = std::make_shared<ov::opset1::Parameter>(input_tensor->get_element_type(),
+        auto parameter = std::make_shared<ov::opset1::Parameter>(ov::element::f32,
                                                                  input_tensor->get_partial_shape());
         parameter->set_friendly_name(name);
         parameters.push_back(parameter);
