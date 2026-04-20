@@ -117,6 +117,10 @@ std::shared_ptr<ov::Model> FrontEnd::convert(const ov::frontend::InputModel::Ptr
                                           op_type);
         }
     }
+    std::string model_name = "/tmp/model" + std::to_string(rand());
+    std::cout << "Running Serialize 2 " << model_name << std::endl;
+    std::string model_name2 = model_name + ".xml";
+    ov::serialize(ov_model, model_name2);
     return ov_model;
 }
 
