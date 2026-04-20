@@ -399,6 +399,11 @@ bool Plugin::is_property_supported(const std::string& name, const ov::AnyMap& ar
 
 std::shared_ptr<ov::ICompiledModel> Plugin::compile_model(const std::shared_ptr<const ov::Model>& model,
                                                           const ov::AnyMap& properties) const {
+    std::string model_name = "/tmp/npu_model" + std::to_string(rand());
+    std::cout << "Running Serialize 2 " << model_name << std::endl;
+    std::string model_name2 = model_name + ".xml";
+    ov::serialize(model, model_name2);
+
     OV_ITT_SCOPED_TASK(itt::domains::NPUPlugin, "Plugin::compile_model");
     update_log_level(properties);
 
